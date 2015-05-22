@@ -2,15 +2,11 @@ __author__ = 'chakib'
 import random
 
 
-"""
-wdghgfxhfgxh dsfgdfgdfg
-"""
-
 
 class sat:
-    def __init__(self, clauses):
+    def __init__(self, clauses=[]):
         self.clauses = clauses.copy()
-        self.maxi = -1;
+        self.maxi = -1
         for i in clauses:
             for j in i:
                 if abs(j) > self.maxi: self.maxi = abs(j)
@@ -22,10 +18,10 @@ class sat:
     def satisfait(self, c, interpretation):
         var = False
         for i in c:
-            if c[i] < 0:
-                var = var or not interpretation[abs(c[i])]
+            if i < 0:
+                var = var or not interpretation[abs(i) - 1]
             else:
-                var = var or interpretation[abs(c[i])]
+                var = var or interpretation[abs(i) - 1]
             if var: return True
         return False
 
@@ -41,9 +37,8 @@ class sat:
             testsolution = self.generate_solution()
             j = 0
             l = self.interpreter(testsolution)
-
             for j in range(maxflip):
-                var = random.randint(self.maxi)
+                var = random.randint(0, self.maxi - 1)
                 testsolution[var] = not testsolution[var]
                 l1 = self.interpreter(testsolution)
                 if sum(l1) > sum(l):
@@ -54,12 +49,26 @@ class sat:
             if sum(l) > sum(initial):
                 solution = testsolution
                 initial = l
+        return solution
+
+    def generate_problem(self, max_clauses=10, max_vars=10):
+        l = []
+        self.maxi = max_clauses
+        x = list(range(-max_vars, max_vars + 1))
+        x.remove(0)
+
+        for i in range(max_clauses):
+            l.append([random.choice(x) for _ in range(random.randint(3, max_vars / 2))])
+        self.clauses = l
+        return l
 
 
-c = [[1, -2], [1, 0]]
-s = sat(c)
-i = s.interpreter([True, False, True])
-print(i)
+l = sat()
+print(l.generate_problem(100, 50))
+print(l.maxi)
+x = l.gsat(400, 20)
+print(x)
+print(x.count(True))
 # print(i)
 
 
