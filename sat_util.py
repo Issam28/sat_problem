@@ -1,6 +1,7 @@
 __author__ = 'chakib'
 import random
-
+import asyncio
+import time
 
 
 class sat:
@@ -12,7 +13,6 @@ class sat:
                 if abs(j) > self.maxi: self.maxi = abs(j)
 
     def interpreter(self, interpretation):
-        cpt = 0
         return [self.satisfait(c, interpretation) for c in self.clauses]
 
     def satisfait(self, c, interpretation):
@@ -28,6 +28,42 @@ class sat:
     def generate_solution(self):
         return [bool(random.getrandbits(1)) for _ in range(self.maxi)]
 
+    def gsatparallel(self, maxiteration=100, maxflip=30, nbcores=4):
+        l = []
+        loop = asyncio.get_event_loop()
+        x = int(maxiteration / nbcores)
+        tasks = [asyncio.async(self.gsat_par(l, x, maxflip)) for _ in range(nbcores)]
+        loop.run_until_complete(asyncio.wait(tasks))
+        loop.close()
+        # print(l)
+        return max(l, key=lambda x: max(x))
+
+    @asyncio.coroutine
+    def gsat_par(self, solutions=[], maxiteration=100, maxflip=30):
+        solution = self.generate_solution()
+        initial = self.interpreter(solution)
+        l = initial
+        testsolution = solution
+        for i in range(maxiteration):
+            # TODO la parallisation de cette boucle
+            for j in range(maxflip):
+                if l.count(False) == 0: break
+                var = self.get_random_var(l)
+                testsolution[var] = not testsolution[var]
+                l1 = self.interpreter(testsolution)
+                if sum(l1) > sum(l):
+                    l = l1
+                else:
+                    testsolution[var] = not testsolution[var]
+            if sum(l) > sum(initial):
+                solution = testsolution.copy()
+                initial = l.copy()
+
+            testsolution = self.generate_solution()
+            l = self.interpreter(testsolution)
+        solutions.append(solution)
+        return solution
+
 
     def gsat(self, maxiteration=100, maxflip=30):
         solution = self.generate_solution()
@@ -35,7 +71,7 @@ class sat:
         l = initial
         testsolution = solution
         for i in range(maxiteration):
-
+            # TODO la parallisation de cette boucle
             for j in range(maxflip):
                 if l.count(False) == 0: break
                 var = self.get_random_var(l)
@@ -103,12 +139,15 @@ l = sat()
 
 l.generate_problem(1000, 100)
 
-print(len(l.clauses))
+#print(len(l.clauses))
 # print(l.generate_problem(100, 50))
 # print(l.maxi)
 # print(x)
 s = l.parser("bench.cnf")
-x = l.gsat(100, 50)
+debut = time.clock()
+x = l.gsatparallel(100, 50, 2)
+temp = time.clock() - debut
+print(temp)
 print(sum(l.interpreter(x)))
 print(s)
 # print(i)
