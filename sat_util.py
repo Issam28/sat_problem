@@ -7,15 +7,16 @@ from math import ceil
 class sat:
     def __init__(self, clauses=[]):
         self.clauses = clauses.copy()  # l'ensemble des clauses
-        self.maxi = -1
+        self.maxi = -1  # le nombre des variables utilisées dans l'ensemble dans le probleme
         for i in clauses:
             for j in i:
                 if abs(j) > self.maxi: self.maxi = abs(j)
 
     def interpreter(self, interpretation):
-        return [self.satisfait(c, interpretation) for c in self.clauses]
+        return [self.satisfait(c, interpretation) for c in self.clauses]  # retourne une liste l ou le i-ieme element
+        # coressepondant a l'interpretation de la i-eme clause ( satisfaite ou non satisfaite )
 
-    def satisfait(self, c, interpretation):
+    def satisfait(self, c, interpretation):  # la satisfiabilité d'une clause avec une interpretation
         var = False
         for i in c:
             if i < 0:
@@ -25,21 +26,23 @@ class sat:
             if var: return True
         return False
 
-    def generate_solution(self):
+    def generate_solution(self):  # generation d'une interpetation aleatoire
         return [bool(random.getrandbits(1)) for _ in range(self.maxi)]
 
-    def gsatparallel(self, maxiteration=100, maxflip=30, nbcores=4):
+    def gsatparallel(self, maxiteration=100, maxflip=30, nbcores=4):  # approche parallele de Gsat
         l = []
         loop = asyncio.get_event_loop()
-        x = int(maxiteration / nbcores)
-        tasks = [asyncio.async(self.gsat_par(l, x, maxflip)) for _ in range(nbcores)]
-        loop.run_until_complete(asyncio.wait(tasks))
+        x = int(maxiteration / nbcores)  # maxiter de chaque processus
+        tasks = [asyncio.async(self.gsat_par(l, x, maxflip)) for _ in
+                 range(nbcores)]  # la boucle qui va lancer les processus
+        loop.run_until_complete(asyncio.wait(tasks))  # point de synchronisation
         loop.close()
         # print(l)
-        return max(l, key=lambda x: max(x))
+        return max(l, key=lambda x: max(x))  # on retoure la meilleure solution
 
-    @asyncio.coroutine
-    def gsat_par(self, solutions=[], maxiteration=100, maxflip=30):
+    @asyncio.coroutine  # une directive qui permet le parallelisme
+    def gsat_par(self, solutions=[], maxiteration=100,
+                 maxflip=30):  # c 'identique a Gsat sequentiel sauf que ici on met la solution dans un tableau
         solution = self.generate_solution()
         initial = self.interpreter(solution)
         l = initial
@@ -66,18 +69,17 @@ class sat:
 
 
     def gsat(self, maxiteration=100, maxflip=30):
-        solution = self.generate_solution()
-        initial = self.interpreter(solution)
+        solution = self.generate_solution()  # generer une solution aleatoire
+        initial = self.interpreter(solution)  # voir son interpretation
         l = initial
         testsolution = solution
-        for i in range(maxiteration):
-            # TODO la parallisation de cette boucle
+        for i in range(maxiteration):  # max iter
             for j in range(maxflip):
-                if l.count(False) == 0: break
-                var = self.get_random_var(l)
-                testsolution[var] = not testsolution[var]
-                l1 = self.interpreter(testsolution)
-                if sum(l1) > sum(l):
+                if l.count(False) == 0: break  # si on a pu atteindre le 100% pas la peine de continuer
+                var = self.get_random_var(l)  # prendre une valeur aleatoire
+                testsolution[var] = not testsolution[var]  # l'inverser
+                l1 = self.interpreter(testsolution)  # voir la nouvelle interpretation
+                if sum(l1) > sum(l):  # comparer la nouvelle interpreation avec l'ancienne
                     l = l1
                 else:
                     testsolution[var] = not testsolution[var]
@@ -88,16 +90,17 @@ class sat:
             testsolution = self.generate_solution()
             l = self.interpreter(testsolution)
 
-        return solution
+        return solution  # retourner la meilleur solution
 
-    def get_random_var(self, evaluation):
+    def get_random_var(self,
+                       evaluation):  # a pour but de chercher une variable aleatoire a condition que cette derniere falsifier au moin une clause
 
         c = evaluation.index(False)
         i = abs(random.choice(self.clauses[c])) - 1
         return i
 
-
-    def generate_problem(self, max_clauses=10, max_vars=10):
+    def generate_problem(self, max_clauses=10, max_vars=10):  # generer un probleme d'une manniere aleatoire
+        # ps : il est deconseiller d'utiliser cette methode
         l = []
         self.maxi = max_clauses
         x = list(range(-max_vars, max_vars + 1))
@@ -108,7 +111,7 @@ class sat:
         self.clauses = l
         return l
 
-    def parser(self, nf):
+    def parser(self, nf):  # lire un fichier .cnf et recuperer l'instance du probleme
         with open(nf, "r") as f:
             maxi = -1
             l = []
@@ -128,7 +131,7 @@ class sat:
             self.maxi = maxi
             return l
 
-    def getclause(self, s):
+    def getclause(self, s):  # lire une ligne dans le fichier cnf et extraire une clasue
         maxi = -1
         l = []
         for i in s:
@@ -155,6 +158,18 @@ def afficher_interpretation(interpretation):
 # print(x)
 
 def benchamrk(input, maxcore=2, maxmaxiter=100, maxmaxflip=50, autocalcul=False):
+    """
+    :param input: un fichier .cnf
+    :param maxcore: nombre de processus
+    :param maxmaxiter: maxiter
+    :param maxmaxflip:
+    :param autocalcul: calculer les parametre maxiter et maxflip dinamiquement
+
+    ceci a pour but de faire une etude empirique sur un probleme de max-sat
+    il va faire varier les parametres et enregistre le comportement de Gsat vis-a-vis ces parametres dans un ficheir excele
+    ayant le meme nom que l'instance
+
+    """
     with open(input + ".csv", "w") as f:
 
         l = sat()
@@ -169,8 +184,11 @@ def benchamrk(input, maxcore=2, maxmaxiter=100, maxmaxflip=50, autocalcul=False)
                 print(maxiter)
                 for maxflip in range(5, maxmaxflip + 1, ceil(maxmaxflip / 5)):
                     debut = time.clock()
-                    # x = l.gsatparallel(maxiter,maxflip,nbcores)
-                    x = l.gsat(maxiter, maxflip)
+                    if nbcores > 1:
+                        x = l.gsatparallel(maxiter, maxflip, nbcores)  # execution parallele
+                    else:
+                        x = l.gsat(maxiter, maxflip)  # execution sequentielle
+
                     temp = time.clock() - debut
                     f.writelines(str(len(l.clauses)) + ";" + str(l.maxi) + ";" + str(sum(l.interpreter(x))) + ";" + str(
                         temp) + ";" + str(maxiter) + ";" + str(maxflip) + ";" + str(nbcores) + "\n")
@@ -190,14 +208,4 @@ print("-------------------------------------")
 print("Solution optimal")
 afficher_interpretation(x)
 
-# print(len(l.clauses),sum(l.interpreter(x)),sep= ";")
-# print(l.maxi)
-# print()
-#
-# print(s)
-# print(x)
-# print(range(x))
-# print(s)
-#print("---------------------------------")
-
-benchamrk("benchmarks/uf20-02.cnf",1,100,20)
+#benchamrk("benchmarks/uf20-02.cnf",1,100,20)
