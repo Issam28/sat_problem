@@ -2,11 +2,11 @@ __author__ = 'chakib'
 import random
 import asyncio
 import time
-
+from math import ceil
 
 class sat:
     def __init__(self, clauses=[]):
-        self.clauses = clauses.copy()
+        self.clauses = clauses.copy()  # l'ensemble des clauses
         self.maxi = -1
         for i in clauses:
             for j in i:
@@ -114,6 +114,7 @@ class sat:
             l = []
             for s in f.readlines():
                 s = s.split()
+                if s[0] == "%": break
                 try:
                     int(s[0])
                     c, maxi2 = self.getclause(s)
@@ -121,6 +122,8 @@ class sat:
                     l.append(c)
                 except ValueError:
                     continue
+                except:
+                    break
             self.clauses = l
             self.maxi = maxi
             return l
@@ -135,21 +138,66 @@ class sat:
         return l, maxi
 
 
-l = sat()
+def afficher_interpretation(interpretation):
+    d = {i + 1: interpretation[i] for i in range(len(interpretation))}
+    print("-------------------------------------")
+    s = '\n'.join("%r : %s " % (key, val) for (key, val) in d.items())
+    print(s)
+    print("-------------------------------------")
 
-l.generate_problem(1000, 100)
+
+# def afficher_solution( )
+# l.generate_problem(1000, 100)
 
 #print(len(l.clauses))
 # print(l.generate_problem(100, 50))
 # print(l.maxi)
 # print(x)
-s = l.parser("bench.cnf")
+
+def benchamrk(input, maxcore=2, maxmaxiter=100, maxmaxflip=50, autocalcul=False):
+    with open(input + ".csv", "w") as f:
+
+        l = sat()
+        l.parser(input)
+        if (autocalcul):
+            maxmaxiter = l.maxi
+            maxmaxflip = l.maxi * 2 / 3
+
+        f.writelines("nb clauses ;nb variables ; nb de caluses satisfaites;temps ; maxiteration ; maxflip ; nbcores\n")
+        for nbcores in range(1, maxcore + 1):
+            for maxiter in range(5, maxmaxiter + 1, ceil(maxmaxiter / 5)):
+                print(maxiter)
+                for maxflip in range(5, maxmaxflip + 1, ceil(maxmaxflip / 5)):
+                    debut = time.clock()
+                    # x = l.gsatparallel(maxiter,maxflip,nbcores)
+                    x = l.gsat(maxiter, maxflip)
+                    temp = time.clock() - debut
+                    f.writelines(str(len(l.clauses)) + ";" + str(l.maxi) + ";" + str(sum(l.interpreter(x))) + ";" + str(
+                        temp) + ";" + str(maxiter) + ";" + str(maxflip) + ";" + str(nbcores) + "\n")
+
+
+l = sat()
+s = l.parser("benchmarks/uuf50-01000.cnf")
 debut = time.clock()
-x = l.gsatparallel(100, 50, 2)
+x = l.gsatparallel(50, 30,4)
 temp = time.clock() - debut
-print(temp)
-print(sum(l.interpreter(x)))
-print(s)
-# print(i)
+print("-------------------------------------")
+print("nb  clauses :", len(l.clauses))
+print("nb varialbes :", l.maxi)
+print("nb clauses satisfaites: " + str(sum(l.interpreter(x))))
+print("temps :", temp, 's')
+print("-------------------------------------")
+print("Solution optimal")
+afficher_interpretation(x)
 
+# print(len(l.clauses),sum(l.interpreter(x)),sep= ";")
+# print(l.maxi)
+# print()
+#
+# print(s)
+# print(x)
+# print(range(x))
+# print(s)
+#print("---------------------------------")
 
+benchamrk("benchmarks/uf20-02.cnf",1,100,20)
